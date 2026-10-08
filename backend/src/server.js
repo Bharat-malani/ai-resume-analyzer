@@ -36,13 +36,24 @@ app.get('/health', async (req, res) => {
   });
 });
 
-// API Routes
+// API Routes (mounted with /api and without /api for universal compatibility)
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
+
 app.use('/api/resumes', resumeRoutes);
+app.use('/resumes', resumeRoutes);
+
 app.use('/api/analysis', analysisRoutes);
+app.use('/analysis', analysisRoutes);
+
 app.use('/api/jobs', jobRoutes);
+app.use('/jobs', jobRoutes);
+
 app.use('/api/admin', adminRoutes);
+app.use('/admin', adminRoutes);
+
 app.use('/api/reports', reportRoutes);
+app.use('/reports', reportRoutes);
 
 // Fallback Route
 app.use('*', (req, res) => {

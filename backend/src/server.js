@@ -56,6 +56,15 @@ app.use(errorHandler);
 async function startServer() {
   try {
     await db.initDb();
+
+    // Auto-seed demo accounts on startup (no Render shell required!)
+    try {
+      const seed = require('./db/seed');
+      await seed();
+    } catch (seedErr) {
+      console.warn('[Seed Startup Warning]', seedErr.message);
+    }
+
     app.listen(PORT, () => {
       console.log(`====================================================`);
       console.log(`ResumeAI Backend API running on http://localhost:${PORT}`);

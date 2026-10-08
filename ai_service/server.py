@@ -181,7 +181,9 @@ class AIRequestHandler(BaseHTTPRequestHandler):
         else:
             self._send_json(404, {"error": "Endpoint not found"})
 
-def run(host='127.0.0.1', port=8000):
+def run():
+    host = os.environ.get('HOST', '0.0.0.0')
+    port = int(os.environ.get('PORT', 8000))
     server = ThreadingHTTPServer((host, port), AIRequestHandler)
     print(f"==================================================")
     print(f"ResumeAI Python AI Microservice running on http://{host}:{port}")

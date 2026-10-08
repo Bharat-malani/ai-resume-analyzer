@@ -1,7 +1,6 @@
 const axios = require('axios');
 const db = require('../db');
-
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000';
+const { getAiServiceUrl } = require('../utils/aiConfig');
 
 const analysisController = {
   async analyzeResume(req, res, next) {
@@ -14,11 +13,12 @@ const analysisController = {
         return res.status(404).json({ success: false, message: 'Resume not found.' });
       }
 
-      const aiResponse = await axios.post(`${AI_SERVICE_URL}/ai/analyze-resume`, {
+      const aiUrl = getAiServiceUrl();
+      const aiResponse = await axios.post(`${aiUrl}/ai/analyze-resume`, {
         raw_text: resume.raw_text,
         filename: resume.filename,
         weights: weights || null
-      }, { timeout: 20000 });
+      }, { timeout: 60000 });
 
       const analysisData = aiResponse.data;
 
@@ -73,9 +73,10 @@ const analysisController = {
         return res.status(400).json({ success: false, message: 'Bullet point text is required.' });
       }
 
-      const aiResponse = await axios.post(`${AI_SERVICE_URL}/ai/improve-bullet`, {
+      const aiUrl = getAiServiceUrl();
+      const aiResponse = await axios.post(`${aiUrl}/ai/improve-bullet`, {
         bullet_point
-      });
+      }, { timeout: 60000 });
 
       res.json({
         success: true,
@@ -101,11 +102,12 @@ const analysisController = {
         }
       }
 
-      const aiResponse = await axios.post(`${AI_SERVICE_URL}/ai/generate-summary`, {
+      const aiUrl = getAiServiceUrl();
+      const aiResponse = await axios.post(`${aiUrl}/ai/generate-summary`, {
         candidate_name: candidateName,
         skills,
         target_role: target_role || 'Software Engineer'
-      });
+      }, { timeout: 60000 });
 
       res.json({
         success: true,

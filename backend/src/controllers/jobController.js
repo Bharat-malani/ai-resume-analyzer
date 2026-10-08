@@ -1,7 +1,6 @@
 const axios = require('axios');
 const db = require('../db');
-
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000';
+const { getAiServiceUrl } = require('../utils/aiConfig');
 
 const jobController = {
   async createJob(req, res, next) {
@@ -15,10 +14,11 @@ const jobController = {
       // Analyze job skills & requirements via AI
       let jobAnalysis = { required_skills: [], top_keywords: [], experience_required: '' };
       try {
-        const aiResponse = await axios.post(`${AI_SERVICE_URL}/ai/analyze-job`, {
+        const aiUrl = getAiServiceUrl();
+        const aiResponse = await axios.post(`${aiUrl}/ai/analyze-job`, {
           job_description: description_text,
           job_title: title || 'Software Engineer'
-        });
+        }, { timeout: 60000 });
         jobAnalysis = aiResponse.data.data;
       } catch (aiErr) {
         console.warn('AI Job analysis warning:', aiErr.message);
@@ -103,12 +103,13 @@ const jobController = {
       }
 
       // Call AI Service for semantic matching
-      const aiResponse = await axios.post(`${AI_SERVICE_URL}/ai/match-resume`, {
+      const aiUrl = getAiServiceUrl();
+      const aiResponse = await axios.post(`${aiUrl}/ai/match-resume`, {
         resume_text: resume.raw_text,
         resume_skills: resumeSkills,
         job_description: targetJobText,
         job_title: targetJobTitle
-      }, { timeout: 20000 });
+      }, { timeout: 60000 });
 
       const matchData = aiResponse.data.match;
 

@@ -4,7 +4,7 @@ const axios = require('axios');
 const FormData = require('form-data');
 const db = require('../db');
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000';
+const { getAiServiceUrl } = require('../utils/aiConfig');
 
 const resumeController = {
   async uploadResume(req, res, next) {
@@ -17,6 +17,7 @@ const resumeController = {
       const fileName = req.file.originalname;
       const fileSize = req.file.size;
       const fileType = path.extname(fileName).replace('.', '').toUpperCase();
+      const aiUrl = getAiServiceUrl();
 
       // 1. Send file to Python AI Service for parsing
       const form = new FormData();
@@ -27,16 +28,17 @@ const resumeController = {
 
       let parseResult;
       try {
-        const aiResponse = await axios.post(`${AI_SERVICE_URL}/ai/parse-resume`, form, {
+        console.log(`[AI Request] Sending ${fileName} to Python AI service at: ${aiUrl}/ai/parse-resume`);
+        const aiResponse = await axios.post(`${aiUrl}/ai/parse-resume`, form, {
           headers: form.getHeaders(),
-          timeout: 25000
+          timeout: 60000 // 60s timeout for cloud container cold-starts
         });
         parseResult = aiResponse.data.data;
       } catch (aiErr) {
-        console.error('[AI Service Error]', aiErr.response?.data || aiErr.message);
+        console.error(`[AI Service Error on ${aiUrl}]:`, aiErr.response?.data || aiErr.message);
         return res.status(502).json({
           success: false,
-          message: aiErr.response?.data?.detail || 'Resume uploaded, but AI parsing service is temporarily unavailable. Please ensure the Python service is running.'
+          message: aiErr.response?.data?.detail || `Resume uploaded, but AI service at ${aiUrl} did not respond (${aiErr.message}). If deploying on Render, please ensure the Python AI service is awake and active.`
         });
       }
 
@@ -74,10 +76,10 @@ const resumeController = {
       // 5. Automatically run initial ATS Scoring & Recommendations
       let analysisRecord = null;
       try {
-        const analyzeResponse = await axios.post(`${AI_SERVICE_URL}/ai/analyze-resume`, {
+        const analyzeResponse = await axios.post(`${aiUrl}/ai/analyze-resume`, {
           raw_text: parseResult.raw_text,
           filename: fileName
-        }, { timeout: 20000 });
+        }, { timeout: 60000 });
 
         const analysisData = analyzeResponse.data;
         analysisRecord = await db.analyses.create({

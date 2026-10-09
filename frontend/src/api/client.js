@@ -84,7 +84,17 @@ export const adminApi = {
 export const reportApi = {
   downloadPdf: (analysisId) => {
     const token = localStorage.getItem('resumeai_token');
-    return `${API_BASE}/reports/pdf/${analysisId}?token=${token}`;
+    return `${API_BASE}/reports/pdf/${analysisId}?token=${encodeURIComponent(token || '')}`;
+  },
+  downloadPdfBlob: async (analysisId) => {
+    const token = localStorage.getItem('resumeai_token');
+    const response = await axios.get(`${API_BASE}/reports/pdf/${analysisId}`, {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : undefined
+      },
+      responseType: 'blob'
+    });
+    return response.data;
   }
 };
 

@@ -40,6 +40,7 @@ export default function AnalysisPage() {
   const [summaryText, setSummaryText] = useState('');
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const toast = useToast();
 
@@ -104,9 +105,28 @@ export default function AnalysisPage() {
     setTimeout(() => setCopiedSummary(false), 2000);
   };
 
-  const handleDownloadPdf = () => {
-    const url = reportApi.downloadPdf(id);
-    window.open(url, '_blank');
+  const handleDownloadPdf = async () => {
+    try {
+      setDownloadingPdf(true);
+      const blob = await reportApi.downloadPdfBlob(id);
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      const cleanName = (resume?.filename || 'Analysis').replace(/\.[^/.]+$/, '');
+      link.download = `ResumeAI-Report-${cleanName}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      toast.success('PDF report downloaded successfully!');
+    } catch (err) {
+      console.warn('Direct blob download fallback to URL:', err);
+      // Fallback: URL with token in query param
+      const url = reportApi.downloadPdf(id);
+      window.open(url, '_blank');
+    } finally {
+      setDownloadingPdf(false);
+    }
   };
 
   if (loading) {
@@ -162,10 +182,11 @@ export default function AnalysisPage() {
           <div className="flex flex-wrap items-center justify-center gap-3 w-full md:w-auto">
             <button
               onClick={handleDownloadPdf}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 shadow-xs transition-all"
+              disabled={downloadingPdf}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 shadow-xs transition-all disabled:opacity-60 cursor-pointer"
             >
-              <Download className="w-4 h-4 text-slate-500" />
-              <span>Download PDF Report</span>
+              <Download className={`w-4 h-4 text-slate-500 ${downloadingPdf ? 'animate-bounce text-indigo-600' : ''}`} />
+              <span>{downloadingPdf ? 'Preparing PDF...' : 'Download PDF Report'}</span>
             </button>
             <Link
               to={`/job-match?resumeId=${resume?.id}`}

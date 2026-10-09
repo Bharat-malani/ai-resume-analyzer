@@ -1,6 +1,6 @@
 const axios = require('axios');
 const db = require('../db');
-const { getAiServiceUrl } = require('../utils/aiConfig');
+const { getAiServiceUrl, callAiWithRetry } = require('../utils/aiConfig');
 
 const analysisController = {
   async analyzeResume(req, res, next) {
@@ -14,11 +14,13 @@ const analysisController = {
       }
 
       const aiUrl = getAiServiceUrl();
-      const aiResponse = await axios.post(`${aiUrl}/ai/analyze-resume`, {
-        raw_text: resume.raw_text,
-        filename: resume.filename,
-        weights: weights || null
-      }, { timeout: 60000 });
+      const aiResponse = await callAiWithRetry(async () => {
+        return await axios.post(`${aiUrl}/ai/analyze-resume`, {
+          raw_text: resume.raw_text,
+          filename: resume.filename,
+          weights: weights || null
+        }, { timeout: 60000 });
+      }, 3, 3000);
 
       const analysisData = aiResponse.data;
 
@@ -103,11 +105,13 @@ const analysisController = {
       }
 
       const aiUrl = getAiServiceUrl();
-      const aiResponse = await axios.post(`${aiUrl}/ai/generate-summary`, {
-        candidate_name: candidateName,
-        skills,
-        target_role: target_role || 'Software Engineer'
-      }, { timeout: 60000 });
+      const aiResponse = await callAiWithRetry(async () => {
+        return await axios.post(`${aiUrl}/ai/generate-summary`, {
+          candidate_name: candidateName,
+          skills,
+          target_role: target_role || 'Software Engineer'
+        }, { timeout: 60000 });
+      }, 3, 3000);
 
       res.json({
         success: true,

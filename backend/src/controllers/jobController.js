@@ -1,6 +1,6 @@
 const axios = require('axios');
 const db = require('../db');
-const { getAiServiceUrl } = require('../utils/aiConfig');
+const { getAiServiceUrl, callAiWithRetry } = require('../utils/aiConfig');
 
 const jobController = {
   async createJob(req, res, next) {
@@ -15,10 +15,12 @@ const jobController = {
       let jobAnalysis = { required_skills: [], top_keywords: [], experience_required: '' };
       try {
         const aiUrl = getAiServiceUrl();
-        const aiResponse = await axios.post(`${aiUrl}/ai/analyze-job`, {
-          job_description: description_text,
-          job_title: title || 'Software Engineer'
-        }, { timeout: 60000 });
+        const aiResponse = await callAiWithRetry(async () => {
+          return await axios.post(`${aiUrl}/ai/analyze-job`, {
+            job_description: description_text,
+            job_title: title || 'Software Engineer'
+          }, { timeout: 60000 });
+        }, 3, 3000);
         jobAnalysis = aiResponse.data.data;
       } catch (aiErr) {
         console.warn('AI Job analysis warning:', aiErr.message);
@@ -102,14 +104,16 @@ const jobController = {
         return res.status(400).json({ success: false, message: 'Please provide or select a job description.' });
       }
 
-      // Call AI Service for semantic matching
+      // Call AI Service for semantic matching (with auto-retry for Render wake-ups)
       const aiUrl = getAiServiceUrl();
-      const aiResponse = await axios.post(`${aiUrl}/ai/match-resume`, {
-        resume_text: resume.raw_text,
-        resume_skills: resumeSkills,
-        job_description: targetJobText,
-        job_title: targetJobTitle
-      }, { timeout: 60000 });
+      const aiResponse = await callAiWithRetry(async () => {
+        return await axios.post(`${aiUrl}/ai/match-resume`, {
+          resume_text: resume.raw_text,
+          resume_skills: resumeSkills,
+          job_description: targetJobText,
+          job_title: targetJobTitle
+        }, { timeout: 60000 });
+      }, 3, 3000);
 
       const matchData = aiResponse.data.match;
 

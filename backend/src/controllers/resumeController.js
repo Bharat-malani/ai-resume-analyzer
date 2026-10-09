@@ -4,7 +4,7 @@ const axios = require('axios');
 const FormData = require('form-data');
 const db = require('../db');
 
-const { getAiServiceUrl } = require('../utils/aiConfig');
+const { getAiServiceUrl, callAiWithRetry } = require('../utils/aiConfig');
 
 const resumeController = {
   async uploadResume(req, res, next) {
@@ -19,20 +19,21 @@ const resumeController = {
       const fileType = path.extname(fileName).replace('.', '').toUpperCase();
       const aiUrl = getAiServiceUrl();
 
-      // 1. Send file to Python AI Service for parsing
-      const form = new FormData();
-      form.append('file', fs.createReadStream(filePath), {
-        filename: fileName,
-        contentType: req.file.mimetype
-      });
-
+      // 1. Send file to Python AI Service for parsing (with auto-retry for Render wake-ups)
       let parseResult;
       try {
         console.log(`[AI Request] Sending ${fileName} to Python AI service at: ${aiUrl}/ai/parse-resume`);
-        const aiResponse = await axios.post(`${aiUrl}/ai/parse-resume`, form, {
-          headers: form.getHeaders(),
-          timeout: 60000 // 60s timeout for cloud container cold-starts
-        });
+        const aiResponse = await callAiWithRetry(async () => {
+          const form = new FormData();
+          form.append('file', fs.createReadStream(filePath), {
+            filename: fileName,
+            contentType: req.file.mimetype
+          });
+          return await axios.post(`${aiUrl}/ai/parse-resume`, form, {
+            headers: form.getHeaders(),
+            timeout: 60000 // 60s timeout for cloud container cold-starts
+          });
+        }, 3, 3000);
         parseResult = aiResponse.data.data;
       } catch (aiErr) {
         console.error(`[AI Service Error on ${aiUrl}]:`, aiErr.response?.data || aiErr.message);
@@ -76,10 +77,12 @@ const resumeController = {
       // 5. Automatically run initial ATS Scoring & Recommendations
       let analysisRecord = null;
       try {
-        const analyzeResponse = await axios.post(`${aiUrl}/ai/analyze-resume`, {
-          raw_text: parseResult.raw_text,
-          filename: fileName
-        }, { timeout: 60000 });
+        const analyzeResponse = await callAiWithRetry(async () => {
+          return await axios.post(`${aiUrl}/ai/analyze-resume`, {
+            raw_text: parseResult.raw_text,
+            filename: fileName
+          }, { timeout: 60000 });
+        }, 2, 2000);
 
         const analysisData = analyzeResponse.data;
         analysisRecord = await db.analyses.create({
